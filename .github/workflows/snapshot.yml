@@ -1,0 +1,34 @@
+name: Daily TTF snapshot
+
+on:
+  schedule:
+    # GitHub cron is UTC.
+    # 21:00 UTC = 23:00 Athens time in winter (EET, UTC+2).
+    - cron: "0 21 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run snapshot
+        run: python scripts/snapshot_ttf.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add snapshots/*.csv
+          git commit -m "TTF snapshot" || echo "No changes to commit"
+          git push
