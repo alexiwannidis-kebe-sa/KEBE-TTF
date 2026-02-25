@@ -3,7 +3,7 @@ name: Upload latest snapshot to OneDrive
 on:
   workflow_dispatch:
   schedule:
-    - cron: "5 21 * * *"   # 23:05 Greece time (EET/EEST depends); adjust if needed
+    - cron: "10 21 * * *"
 
 permissions:
   contents: read
@@ -15,30 +15,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to Microsoft (client credentials)
-        uses: microsoftgraph/msgraph-sdk-javascript-auth@v1
-        with:
-          tenantId: ${{ secrets.AZURE_TENANT_ID }}
-          clientId: ${{ secrets.AZURE_CLIENT_ID }}
-          clientSecret: ${{ secrets.AZURE_CLIENT_SECRET }}
-
-      - name: Upload newest CSV to OneDrive folder
+      - name: Upload newest CSV to OneDrive (Microsoft Graph)
         env:
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
           set -e
-
-          echo "Installing tools..."
           sudo apt-get update -y
           sudo apt-get install -y jq curl
 
-          echo "Finding newest CSV under snapshots/ ..."
           FILE=$(ls -1t snapshots/*.csv | head -n 1)
           echo "Newest file: $FILE"
 
-          echo "Getting access token..."
           TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "client_id=${CLIENT_ID}" \
@@ -51,12 +40,8 @@ jobs:
             exit 1
           fi
 
-          # Upload to OneDrive root folder path:
-          # IMPORTANT: change this to your OneDrive folder path (next step)
-          ONEDRIVE_PATH="TTF_Curve_Snapshots"
-
+          ONEDRIVE_PATH="01. TTF_Curve_Snapshots"
           BASENAME=$(basename "$FILE")
-          echo "Uploading to OneDrive: ${ONEDRIVE_PATH}/${BASENAME}"
 
           curl -s -X PUT \
             -H "Authorization: Bearer ${TOKEN}" \
