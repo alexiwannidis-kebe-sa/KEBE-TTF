@@ -4,7 +4,7 @@ on:
   schedule:
     # GitHub cron is UTC.
     # 21:00 UTC = 23:00 Athens time in winter (EET, UTC+2).
-    - cron: "0 21 * * *"
+    - cron: "0 23 * * *"
   workflow_dispatch: {}
 
 permissions:
