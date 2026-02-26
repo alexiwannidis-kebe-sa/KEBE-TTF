@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install -y jq curl
 
           echo "Finding newest CSV under snapshots/ ..."
-          FILE=$(ls -1t snapshots/*.csv | head -n 1)
+          FILE=$(ls -1 snapshots/*.csv | sort | tail -n 1)
           echo "Newest file: $FILE"
 
           echo "Getting access token..."
