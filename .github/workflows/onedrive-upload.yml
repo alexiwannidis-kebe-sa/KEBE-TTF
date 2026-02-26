@@ -3,7 +3,7 @@ name: Upload latest snapshot to OneDrive
 on:
   workflow_dispatch:
   schedule:
-    - cron: "10 21 * * *"
+    - cron: "10 21 * * *"   # UTC
 
 permissions:
   contents: read
@@ -21,44 +21,45 @@ jobs:
           CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
-  set -euo pipefail
-  sudo apt-get update -y
-  sudo apt-get install -y jq curl
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y jq curl
 
-  FILE=$(ls -1t snapshots/*.csv | head -n 1)
-  echo "Newest file: $FILE"
+          echo "Finding newest CSV under snapshots/ ..."
+          FILE=$(ls -1t snapshots/*.csv | head -n 1)
+          echo "Newest file: $FILE"
 
-  echo "Getting access token..."
-  TOKEN_RESP=$(curl -s -X POST "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token" \
-    -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "client_id=${CLIENT_ID}" \
-    -d "scope=https%3A%2F%2Fgraph.microsoft.com%2F.default" \
-    -d "client_secret=${CLIENT_SECRET}" \
-    -d "grant_type=client_credentials")
+          echo "Getting access token..."
+          TOKEN_RESP=$(curl -s -X POST "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "client_id=${CLIENT_ID}" \
+            -d "scope=https%3A%2F%2Fgraph.microsoft.com%2F.default" \
+            -d "client_secret=${CLIENT_SECRET}" \
+            -d "grant_type=client_credentials")
 
-  # show token response without leaking the token
-  echo "$TOKEN_RESP" | jq '{token_type, expires_in, ext_expires_in, has_access_token: (.access_token != null)}'
+          # Show token response without leaking the token
+          echo "$TOKEN_RESP" | jq '{token_type, expires_in, ext_expires_in, has_access_token: (.access_token != null)}'
 
-  TOKEN=$(echo "$TOKEN_RESP" | jq -r '.access_token')
-  if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
-    echo "Failed to get token"
-    exit 1
-  fi
+          TOKEN=$(echo "$TOKEN_RESP" | jq -r '.access_token')
+          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+            echo "Failed to get token"
+            exit 1
+          fi
 
-  # IMPORTANT: use your actual UPN/email in Graph
-  USER_UPN="a.ioannidis@kebe-sa.gr"
+          # Use your actual user UPN/email for Graph
+          USER_UPN="a.ioannidis@kebe-sa.gr"
 
-  # IMPORTANT: URL-encode spaces in folder name
-  ONEDRIVE_PATH="01.%20TTF_Curve_Snapshots"
+          # Folder name is: "01. TTF_Curve_Snapshots" -> URL-encode spaces
+          ONEDRIVE_PATH="01.%20TTF_Curve_Snapshots"
 
-  BASENAME=$(basename "$FILE")
-  UPLOAD_URL="https://graph.microsoft.com/v1.0/users/${USER_UPN}/drive/root:/${ONEDRIVE_PATH}/${BASENAME}:/content"
+          BASENAME=$(basename "$FILE")
+          UPLOAD_URL="https://graph.microsoft.com/v1.0/users/${USER_UPN}/drive/root:/${ONEDRIVE_PATH}/${BASENAME}:/content"
 
-  echo "Uploading to: $UPLOAD_URL"
+          echo "Uploading to: $UPLOAD_URL"
 
-  # -f makes curl fail on 4xx/5xx so the workflow will turn red with an error we can see
-  curl -fS -X PUT \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: text/csv" \
-    --data-binary @"$FILE" \
-    "$UPLOAD_URL" | jq '{name, id, size, webUrl}'
+          # Fail on 4xx/5xx
+          curl -fS -X PUT \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Type: text/csv" \
+            --data-binary @"$FILE" \
+            "$UPLOAD_URL" | jq '{name, id, size, webUrl}'
