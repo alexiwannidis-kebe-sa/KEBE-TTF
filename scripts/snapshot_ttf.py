@@ -7,18 +7,25 @@ import json
 
 ICE_URL = "https://www.ice.com/marketdata/api/productguide/charting/contract-data?productId=4331&hubId=7979"
 
-# monthly format examples: Feb26, Mar26, Apr27 ...
+# Monthly examples: Feb26, Mar26, Apr27 ...
 MONTHLY_RE = re.compile(r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{2}$")
+
+# Calendar examples: Cal26, Cal27 ...
+CAL_RE = re.compile(r"^Cal\d{2}$")
 
 def fetch_json(url: str):
     req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode("utf-8"))
 
+def is_month_or_calendar(market_strip: str) -> bool:
+    s = (market_strip or "").strip()
+    return bool(MONTHLY_RE.match(s) or CAL_RE.match(s))
+
 def main():
     data = fetch_json(ICE_URL)
 
-    monthly = [x for x in data if MONTHLY_RE.match(str(x.get("marketStrip", "")))]
+    monthly_or_cal = [x for x in data if is_month_or_calendar(str(x.get("marketStrip", "")))]
 
     now_utc = datetime.now(timezone.utc)
     stamp = now_utc.strftime("%Y-%m-%d_%H%M")
@@ -40,7 +47,7 @@ def main():
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
-        for x in monthly:
+        for x in monthly_or_cal:
             row = {
                 "snapshot_utc": now_utc.isoformat(),
                 "marketStrip": x.get("marketStrip"),
@@ -53,7 +60,7 @@ def main():
             }
             w.writerow(row)
 
-    print(f"Wrote {out_path} ({len(monthly)} monthly rows)")
+    print(f"Wrote {out_path} ({len(monthly_or_cal)} rows)")
 
 if __name__ == "__main__":
     main()
