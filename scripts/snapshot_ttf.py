@@ -11,7 +11,7 @@ ICE_URL = "https://www.ice.com/marketdata/api/productguide/charting/contract-dat
 MONTHLY_RE = re.compile(r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{2}$")
 
 # Calendar examples: Cal26, Cal27 ...
-CAL_RE = re.compile(r"^Cal\d{2}$")
+CAL_RE = re.compile(r"^Cal\s?\d{2}$")
 
 def fetch_json(url: str):
     req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
