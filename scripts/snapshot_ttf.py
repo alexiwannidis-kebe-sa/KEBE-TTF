@@ -14,14 +14,17 @@ MONTHLY_RE = re.compile(r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{2
 # Calendar examples: Cal26, Cal27 ...
 CAL_RE = re.compile(r"^Cal\s?\d{2}$")
 
+
 def fetch_json(url: str):
     req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode("utf-8"))
 
+
 def is_month_or_calendar(market_strip: str) -> bool:
     s = (market_strip or "").strip()
     return bool(MONTHLY_RE.match(s) or CAL_RE.match(s))
+
 
 def main():
     data = fetch_json(ICE_URL)
@@ -30,10 +33,11 @@ def main():
 
     now_utc = datetime.now(timezone.utc)
     stamp = now_utc.strftime("%Y-%m-%d_%H%M")
+
     out_dir = "snapshots"
     history_path = "snapshots/ttf_curve_history.csv"
-    required_fields = ["snapshot_utc", "marketStrip", "lastPrice", "change", "volume", "lastTime", "endDate", "marketId"]
     os.makedirs(out_dir, exist_ok=True)
+
     out_path = os.path.join(out_dir, f"ttf_curve_{stamp}_utc.csv")
 
     fieldnames = [
@@ -47,23 +51,45 @@ def main():
         "marketId",
     ]
 
+    valid_rows = []
+
+    for x in monthly_or_cal:
+        row = {
+            "snapshot_utc": now_utc.isoformat(),
+            "marketStrip": x.get("marketStrip"),
+            "lastPrice": x.get("lastPrice"),
+            "change": x.get("change"),
+            "volume": x.get("volume"),
+            "lastTime": x.get("lastTime"),
+            "endDate": x.get("endDate"),
+            "marketId": x.get("marketId"),
+        }
+
+        if row["lastPrice"] in (None, "", "null"):
+            continue
+        if row["lastTime"] in (None, "", "null"):
+            continue
+
+        valid_rows.append(row)
+
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
-        for x in monthly_or_cal:
-            row = {
-                "snapshot_utc": now_utc.isoformat(),
-                "marketStrip": x.get("marketStrip"),
-                "lastPrice": x.get("lastPrice"),
-                "change": x.get("change"),
-                "volume": x.get("volume"),
-                "lastTime": x.get("lastTime"),
-                "endDate": x.get("endDate"),
-                "marketId": x.get("marketId"),
-            }
+        for row in valid_rows:
             w.writerow(row)
 
-    print(f"Wrote {out_path} ({len(monthly_or_cal)} rows)")
+    history_file = Path(history_path)
+    history_exists = history_file.exists()
+
+    with open(history_path, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+
+        if not history_exists:
+            w.writeheader()
+
+        for row in valid_rows:
+            w.writerow(row)
+
 
 if __name__ == "__main__":
     main()
