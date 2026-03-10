@@ -26,6 +26,14 @@ def is_month_or_calendar(market_strip: str) -> bool:
     return bool(MONTHLY_RE.match(s) or CAL_RE.match(s))
 
 
+def is_valid_row(row: dict) -> bool:
+    if row.get("lastPrice") in (None, "", "null"):
+        return False
+    if row.get("lastTime") in (None, "", "null"):
+        return False
+    return True
+
+
 def main():
     data = fetch_json(ICE_URL)
 
@@ -35,7 +43,7 @@ def main():
     stamp = now_utc.strftime("%Y-%m-%d_%H%M")
 
     out_dir = "snapshots"
-    history_path = "snapshots/ttf_curve_history.csv"
+    history_path = os.path.join(out_dir, "ttf_curve_history.csv")
     os.makedirs(out_dir, exist_ok=True)
 
     out_path = os.path.join(out_dir, f"ttf_curve_{stamp}_utc.csv")
@@ -65,12 +73,8 @@ def main():
             "marketId": x.get("marketId"),
         }
 
-        if row["lastPrice"] in (None, "", "null"):
-            continue
-        if row["lastTime"] in (None, "", "null"):
-            continue
-
-        valid_rows.append(row)
+        if is_valid_row(row):
+            valid_rows.append(row)
 
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
@@ -78,16 +82,22 @@ def main():
         for row in valid_rows:
             w.writerow(row)
 
-    history_file = Path(history_path)
-    history_exists = history_file.exists()
+    history_rows = []
 
-    with open(history_path, "a", newline="", encoding="utf-8") as f:
+    for file_path in sorted(Path(out_dir).glob("ttf_curve_*_utc.csv")):
+        if file_path.name == "ttf_curve_history.csv":
+            continue
+
+        with open(file_path, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if is_valid_row(row):
+                    history_rows.append(row)
+
+    with open(history_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
-
-        if not history_exists:
-            w.writeheader()
-
-        for row in valid_rows:
+        w.writeheader()
+        for row in history_rows:
             w.writerow(row)
 
 
