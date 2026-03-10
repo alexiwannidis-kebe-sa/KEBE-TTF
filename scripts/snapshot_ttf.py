@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timezone
 from urllib.request import urlopen, Request
 import json
+from pathlib import Path
 
 ICE_URL = "https://www.ice.com/marketdata/api/productguide/charting/contract-data?productId=4331&hubId=7979"
 
@@ -30,6 +31,8 @@ def main():
     now_utc = datetime.now(timezone.utc)
     stamp = now_utc.strftime("%Y-%m-%d_%H%M")
     out_dir = "snapshots"
+    history_path = "snapshots/ttf_curve_history.csv"
+    required_fields = ["snapshot_utc", "marketStrip", "lastPrice", "change", "volume", "lastTime", "endDate", "marketId"]
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"ttf_curve_{stamp}_utc.csv")
 
